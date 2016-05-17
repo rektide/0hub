@@ -1,0 +1,34 @@
+{
+	"@context": {
+		"0service": "https://0.eldergods.com/#service",
+		"0hub": "https://0.eldergods.com/#",
+		"push": "urn:ietf:params:push",
+
+		"id": "0service:id",
+		"name": "0service:name",
+		"type": "0service:type",
+		"url": {
+			"@id": "0service:url",
+			"@type": "@id"
+		},
+		"config": "0service:config",
+
+		"online": {
+			"@id": "0service:online",
+			"@type": "xs:boolean"
+		},
+
+		"notify": {
+			"@id": "0service:notify",
+			"@type": "push:"
+		},
+		"available": {
+			"@id": "0service:available",
+			"@type": "push:"
+		},
+		"unavailable": {
+			"@id": "0service:unavailable",
+			"@type": "push:"
+		}
+	}
+}

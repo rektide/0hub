@@ -1,0 +1,23 @@
+{
+	"@context": {
+		"0hub": "http://0.eldergods.com/#",
+		"xs": "http://www.w3.org/2001/XMLSchema#",
+
+		"id": "0hub:id",
+		"name": "0hub:name",
+		"type": "0hub:type",
+		"url": {
+			"@id": "0hub:url",
+			"@type": "@id"
+		},
+		"config": "0hub:config",
+		"online": {
+			"@id": "0hub:online",
+			"@type": "xs:boolean"
+		},
+		"notify": {
+			"@id": "0hub:notify",
+			"@type": "0hub:NotifyList"
+		}
+	}
+}
