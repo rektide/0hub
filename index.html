@@ -15,5 +15,10 @@
 
 <script src="/c/resourceLabel.js" type="text/javascript" async></script>
 <script src="/c/resourceList.js" type="text/javascript" async></script>
+<script async>
+navigator.serviceWorker.register("./disco-hub.js").catch(function(err){
+	console.error("0hub servieworker load fialed", err)
+})
+</script>
 </body>
 </html>

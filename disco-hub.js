@@ -1,11 +1,6 @@
-#!/usr/bin/env node
 "use strict"
-var Pino= require("pino"),
-  SHA= require("sha1")
-//import * as Pino from "pino"
+//var SHA= require("sha1")
 //import * as SHA from "sha1"
-
-const log= new Pino()
 
 function forbidden(ff){
 	ff.respondWith("", {
@@ -145,7 +140,7 @@ let browsing= routes.b.handler= makeSet("b")
 let browsingDefault= routes.db.handler= makeDefault("db")
 let register= routes.r.handler= makeSet("r")
 let registerDefault= routes.dr.handler= makeDefault("dr")
-let browsingAutomatic= routes.lb.handler= makeDefault("lb")
+let browsingAutomatic= routes.l.handler= makeDefault("lb")
 routes[""].handler= {GET: browsing.GET, HEAD: browsing.HEAD}
 
 self.addEventListener("foreignfetch", function(ff) {
@@ -165,14 +160,9 @@ self.addEventListener("foreignfetch", function(ff) {
 			return
 		}
 	}
-
-	pino.warn("Request not found", {url})
-	ff.respondWith(new Reponse("", {
-		status: 404,
-		statusText: "Not Found"
-	}))
+	notFound(ff)
 }, {passive: true})
 
 self.addEventListener("install", function(install) {
 	install.registerForeignFetch({scopes: ["/.well-known/0hub"], origins: ["https://0.eldergods.com/"]})
-}, {passive: true})
+})
