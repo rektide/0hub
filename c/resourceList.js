@@ -1,31 +1,33 @@
-var ResourceLabel= Object.create(HTMLElement.prototype, {
+var ResourceList= Object.create(HTMLElement.prototype, {
 	refresh: {
 		enumerable: true,
 		value: function(){
-			var src= this.getAttribute("src")
 			return fetch(this.getAttribute("src")).then(function(response){
 				this.data= response.text().then(function(data){
 					try{
 						data= JSON.parse(data)
-					}catch(ex){}
-					this.innerHTML = JSON.stringify(data)
-					return data
+						var html = ["<ol>"]
+						data.forEach(function(item){
+							html.push("<li>", item.toString(), "</li>")
+						})
+						html.push("</ol>")
+						this.innerHTML= html.join("")
+					}catch(ex){
+						data= null
+						return
+					}
 				})
 			})
 		}
 	},
 	attributeChangedCallback: {
+		writable: true,
 		value: function(name, oldValue, newValue){
 			if(name === "src"){
 				this.refresh()
 			}else{
 				console.error("unexpected attribute changed event: "+name)
 			}
-		}
-	},
-	connectedCallback: {
-		value: function(){
-			this.innerHTML= "[loading]"
 		}
 	},
 	createdCallback: {
@@ -37,9 +39,10 @@ var ResourceLabel= Object.create(HTMLElement.prototype, {
 			this.innerHTML= "[loading]"
 		}
 	}
+
 })
 
-Object.defineProperties(ResourceLabel, {
+Object.defineProperties(ResourceList, {
 	observedAttributes: {
 		enumerable: true,
 		get: function(){
@@ -49,9 +52,9 @@ Object.defineProperties(ResourceLabel, {
 })
 
 if(typeof customElements !== "undefined"){
-	customElements.define("resource-label", ResourceLabel, {extends: "span"})
+	customElements.define("resource-list", ResourceList, {extends: "span"})
 }else{
-	document.registerElement("resource-label", {
-		prototype: ResourceLabel
+	document.registerElement("resource-list", {
+		prototype: ResourceList
 	})
 }
