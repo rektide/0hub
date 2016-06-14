@@ -1,5 +1,9 @@
-import * as Pino from "pino"
-import * as SHA from "sha1"
+#!/usr/bin/env node
+"use strict"
+var Pino= require("pino"),
+  SHA= require("sha1")
+//import * as Pino from "pino"
+//import * as SHA from "sha1"
 
 const log= new Pino()
 
@@ -41,7 +45,7 @@ function makeSet(prefix){
 				if(!text){
 					text= JSON.stringify(Object.keys(set))
 				}
-				ff.respondWith(new Response(text, {headers})
+				ff.respondWith(new Response(text, {headers}))
 			}else if(set[domain]){
 				ff.respondWith(new Response())
 			}else{
@@ -66,9 +70,9 @@ function makeSet(prefix){
 					status: 303,
 					statusText: "See Other",
 					headers: {
-						Location: location.origin + prefix + "/" + checked
+						Location: location.origin+ prefix+ "/"+ checked
 					}
-				})
+				}))
 			}
 			set[domain]= true
 			text= null
@@ -90,9 +94,9 @@ function makeSet(prefix){
 					status: 303,
 					statusText: "See Other",
 					headers: {
-						Location: location.origin + prefix + "/" + checked // now 404!
+						Location: location.origin+ prefix+ "/"+ checked // now 404!
 					}
-				})
+				}))
 			}
 			delete set[domain]
 			text= null
@@ -101,48 +105,48 @@ function makeSet(prefix){
 }
 
 function makeDefault(){
-	
+	var def= null
+	return {
+		GET: function(ff){
+			if(def === null){
+				return notFound(ff)
+			}
+			ff.respondWith(new Response(def))
+		},
+		HEAD: function(ff){
+			if(def === null){
+				return notFound(ff)
+			}
+			ff.respondWith(new Response())
+		},
+		POST: function(ff){
+			ff.request.text().then(function(body){
+				def= body
+				ff.respondWith(new Response())
+			})
+		},
+		DELETE: function(ff){
+			def= null
+			ff.respondWith(new Response())
+		}
+	}
 }
-
-let browsing= {}
-let browsingEtag
-let defaultBrowsing
-let registering= {}
-let register
-let defaultBrowsingEtag
-let 
 
 var routes={
 	"": /^\/$/,
 	b: /^\/b(?:\/([\w\.]+)?)$/,
-	d: /^\/db(?:\/)$/,
+	db: /^\/db(?:\/)$/,
 	r: /^\/r(?:\/([\w\.]+)?)$/,
+	dr: /^\/dr(?:\/([\w\.]+)?)$/,
 	l: /^\/lb$/
 }
 
-var get(collection){
-	var 
-	
-}
-
-routes[""].handler= function(ff){
-	var text= JSON.stringify(browsing)
-	ff.respondWith(new Response(
-}
-
-
-routes.b.handler= function(ff){
-}
-
-routes.d.handler= function(ff){
-}
-
-routes.r.handler= function(ff){
-}
-
-routes.l.handler= function(ff){
-}
-
+let browsing= routes.b.handler= makeSet("b")
+let browsingDefault= routes.db.handler= makeDefault("db")
+let register= routes.r.handler= makeSet("r")
+let registerDefault= routes.dr.handler= makeDefault("dr")
+let browsingAutomatic= routes.lb.handler= makeDefault("lb")
+routes[""].handler= {GET: browsing.GET, HEAD: browsing.HEAD}
 
 self.addEventListener("foreignfetch", function(ff) {
 	var url= ff.request.url,
@@ -150,8 +154,11 @@ self.addEventListener("foreignfetch", function(ff) {
 	  regex= routes[hint]
 	if(regex){
 		var ok= regex.exec(url)
+		if(!ok[ff.request.method]){
+			ok= false
+		}
 		if(ok){
-			regex.handler(ff, ok[1])
+			regex.handler[ff.request.method](ff, ok[1])
 			return
 		}
 	}
@@ -160,7 +167,7 @@ self.addEventListener("foreignfetch", function(ff) {
 	ff.respondWith(new Reponse("", {
 		status: 404,
 		statusText: "Not Found"
-	})
+	}))
 }, {passive: true})
 
 self.addEventListener("install", function(install) {
