@@ -152,6 +152,9 @@ self.addEventListener("foreignfetch", function(ff) {
 	var url= ff.request.url,
 	  hint= url[1] || "",
 	  regex= routes[hint]
+	if(!regex){
+		regex= routes[url.substring(0, 2)]
+	}
 	if(regex){
 		var ok= regex.exec(url)
 		if(!ok[ff.request.method]){
