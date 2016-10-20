@@ -128,12 +128,12 @@ function makeDefault(){
 }
 
 var routes={
-	"": /^\/$/,
-	b: /^\/b(?:\/([\w\.]+)?)$/,
-	db: /^\/db(?:\/)$/,
-	r: /^\/r(?:\/([\w\.]+)?)$/,
-	dr: /^\/dr(?:\/([\w\.]+)?)$/,
-	l: /^\/lb$/
+	//"": /^$/,
+	b: /^b(?:\/([\w\.]+))?$/,
+	db: /^db(?:\/)?$/,
+	r: /^r(?:\/([\w\.]+))?$/,
+	dr: /^dr(?:\/([\w\.]+))?$/,
+	l: /^lb$/
 }
 
 let browsing= routes.b.handler= makeSet("b")
@@ -141,28 +141,37 @@ let browsingDefault= routes.db.handler= makeDefault("db")
 let register= routes.r.handler= makeSet("r")
 let registerDefault= routes.dr.handler= makeDefault("dr")
 let browsingAutomatic= routes.l.handler= makeDefault("lb")
-routes[""].handler= {GET: browsing.GET, HEAD: browsing.HEAD}
+//routes[""].handler= {GET: browsing.GET, HEAD: browsing.HEAD}
 
-self.addEventListener("foreignfetch", function(ff) {
-	var url= ff.request.url,
-	  hint= url[1] || "",
+function f(ff){
+	var
+	  path = ff.request.url.substring(self.registration.scope.length),
+	  hint= path[0] || "",
 	  regex= routes[hint]
 	if(!regex){
-		regex= routes[url.substring(0, 2)]
+		regex= routes[path.substring(0,2)]
 	}
 	if(regex){
-		var ok= regex.exec(url)
-		if(!ok[ff.request.method]){
-			ok= false
-		}
-		if(ok){
-			regex.handler[ff.request.method](ff, ok[1])
-			return
+		var ok= regex.exec(path),
+		  handler= regex.handler[ff.request.method]
+		if(ok&& handler){
+			handler(ff, ok[1])
+		}else{
+			notFound(ff)
 		}
 	}
-	notFound(ff)
-}, {passive: true})
+}
 
-self.addEventListener("install", function(install) {
-	install.registerForeignFetch({scopes: ["/.well-known/0hub"], origins: ["https://0.eldergods.com/"]})
+self.addEventListener("fetch", f, {passive: true})
+self.addEventListener("foreignfetch", f, {passive: true})
+
+self.addEventListener("install", function(install){
+	var scopes= [
+	    self.registration.scope + "b",
+	    self.registration.scope + "db",
+	    self.registration.scope + "r",
+	    self.registration.scope + "dr",
+	    self.registration.scope + "lb"],
+	  origins= ["*"]
+	install.registerForeignFetch({scopes, origins})
 })
