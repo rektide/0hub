@@ -16,6 +16,21 @@ function notFound(ff){
 	})
 }
 
+function idb(name){
+	var defaults = new Promise(function(res,rej){
+		var defaults= indexedDB.open("default")
+		defaults.onupgradeneeded= function(){
+			defaults.result.createObjectStore("defaults", {keyPath: "key"})
+		}
+		defaults.onsuccess= function(){
+			resolve(defaults.result)
+		}
+		defaults.onerror= function(){
+			reject(defaults.error)
+		}
+	})
+}
+
 function subdomainCheck(requested, origin){
 	origin = origin || location.origin
 	if(!requested){
@@ -33,7 +48,7 @@ const headers = {
 
 function makeSet(prefix){
 	const set= {}
-	let text
+	var db= idb(prefix)
 	return {
 		GET: function(ff, domain){
 			if(!domain){
@@ -99,14 +114,24 @@ function makeSet(prefix){
 	}
 }
 
-function makeDefault(){
-	var def= null
+function requestHandle(request, ff){
+	request.onsuccess= function(){
+		ff.respondWith(new Response(request.result))
+	}
+	request.onerror= function(){
+		notFound(ff)
+	}
+}
+
+
+var defaults= idb("defaults")
+function makeDefault(name){
 	return {
 		GET: function(ff){
 			if(def === null){
 				return notFound(ff)
 			}
-			ff.respondWith(new Response(def))
+			var request= defaults.get(name)
 		},
 		HEAD: function(ff){
 			if(def === null){
@@ -116,12 +141,17 @@ function makeDefault(){
 		},
 		POST: function(ff){
 			ff.request.text().then(function(body){
-				def= body
-				ff.respondWith(new Response())
+				var request= defaults.put(name, body)
+				request.onsuccess= function(){
+					ff.respondWith(new Response())
+				}
+				request.onerror= function(){
+					notFound(ff)
+				}
 			})
 		},
 		DELETE: function(ff){
-			def= null
+			var request= defaults.delete(name)
 			ff.respondWith(new Response())
 		}
 	}
@@ -136,11 +166,11 @@ var routes={
 	l: /^lb$/
 }
 
-let browsing= routes.b.handler= makeSet("b")
-let browsingDefault= routes.db.handler= makeDefault("db")
-let register= routes.r.handler= makeSet("r")
-let registerDefault= routes.dr.handler= makeDefault("dr")
-let browsingAutomatic= routes.l.handler= makeDefault("lb")
+var browsing= routes.b.handler= makeSet("b")
+var browsingDefault= routes.db.handler= makeDefault("db")
+var register= routes.r.handler= makeSet("r")
+var registerDefault= routes.dr.handler= makeDefault("dr")
+var browsingAutomatic= routes.l.handler= makeDefault("lb")
 //routes[""].handler= {GET: browsing.GET, HEAD: browsing.HEAD}
 
 function f(ff){
