@@ -16,9 +16,9 @@ class ResourceList extends HTMLElement {
 		this.innerHTML = "[loading]"
 	}
 	refresh(){
-		this.data= fetch(this.getAttribute("src"))
-		  .then(response=> response.json())
-		this.data.then(function(data){
+		var src= this.getAttribute("src")
+		this.data= fetch(src).then(response=> response.json())
+		this.data.then(data=>{
 			var html = ["<ol>"]
 			data.forEach(function(item){
 				html.push("<li>", item.toString(), "</li>")

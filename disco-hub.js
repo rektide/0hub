@@ -1,6 +1,4 @@
 "use strict"
-//var SHA= require("sha1")
-//import * as SHA from "sha1"
 
 function forbidden(ff){
 	ff.respondWith("", {
