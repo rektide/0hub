@@ -1,32 +1,90 @@
 "use strict"
 
-function forbidden(ff){
-	ff.respondWith("", {
-		status: 403,
-		statusText: "Forbidden"
-	})
+var _forbidden= new Response("Forbidden", {status: 403})
+function forbidden(req){
+	if(request){
+		console.warn({status: 403, url: req.url})
+	}
+	return _forbidden
 }
 
-function notFound(ff){
-	ff.respondWith("", {
-		status: 404,
-		statusText: "Not Found"
-	})
+var _notFound= new Response("Not Found", {status: 404})
+function notFound(request){
+	if(request){
+		console.warn({status: 404, url: req.url})
+	}
+	return _notFound
 }
 
-function idb(name){
+var _error500= new Response("Internal Server Error", {status: 500})
+function error500(request, error){
+	var report= {status: 500}
+	if(request){
+		report.request= request
+	}
+	if(error){
+		report.error= error
+	}
+	console.warn(report)
+	return _error500
+}
+
+function result(request){
+	return request.result
+}
+
+function idb(name, {views}){
+	views= views|| {}
+	views.forbidden= views.forbidden|| forbidden
+	views.notFound= views.notFound|| notFound
+	views.error500= views.error500|| error500
 	var defaults = new Promise(function(res,rej){
-		var defaults= indexedDB.open("default")
-		defaults.onupgradeneeded= function(){
+		var open= indexedDB.open(name)
+		open.onupgradeneeded= function(){
 			defaults.result.createObjectStore("defaults", {keyPath: "key"})
 		}
-		defaults.onsuccess= function(){
-			resolve(defaults.result)
+		open.onsuccess= function(){
+			var db= defaults.result
+			db.fetchGet= function(ff, key){
+				return new Promise(function(resolve, reject){
+					var get= db.get(key)
+					get.onsuccess= function(){
+						var result= get.result
+						if(views.get){
+							result= views.get(result)
+						}
+						ff.respondWith(result)
+					}
+					get.onerror= function(){
+						var err= get.error
+						if(views.error){
+							err= views.error(err)
+						}
+						ff.respondWith(err)
+					}
+				})
+			}
+			db.fetchPut= function( ff, key, value){
+				var put= db.put(key, value)
+				put.onsuccess= function(){
+					var result= put.result
+					if(views.put){
+						result= views.put(result)
+					}
+					ff.respondWith()
+				}
+				put.onerror= function(){
+					ff.respondWith(error500())
+				}
+			}
+			resolve(db)
 		}
-		defaults.onerror= function(){
+		open.onerror= function(){
 			reject(defaults.error)
 		}
 	})
+	
+	return defaults
 }
 
 function subdomainCheck(requested, origin){

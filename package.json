@@ -1,0 +1,15 @@
+{
+	"name": "0hub",
+	"version": "1.0.0",
+	"description": "",
+	"main": "client.js",
+	"scripts": {
+		"test": "echo \"Error: no test specified\" && exit 1",
+		"files": "find *json *js c/*js"
+	},
+	"keywords": ["zeroconf", "discovery"],
+	"author": "rektide de la faye",
+	"license": "X11",
+	"dependencies": {
+	}
+}
