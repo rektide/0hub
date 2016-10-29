@@ -1,22 +1,19 @@
 "use strict"
 
-var _forbidden= new Response("Forbidden", {status: 403})
 function forbidden(req){
 	if(request){
 		console.warn({status: 403, url: req.url})
 	}
-	return _forbidden
+	return new Response(null, {status: 403})
 }
 
-var _notFound= new Response("Not Found", {status: 404})
 function notFound(request){
 	if(request){
 		console.warn({status: 404, url: req.url})
 	}
-	return _notFound
+	return new Response(null, {status: 404})
 }
 
-var _error500= new Response("Internal Server Error", {status: 500})
 function error500(request, error){
 	var report= {status: 500}
 	if(request){
@@ -26,11 +23,14 @@ function error500(request, error){
 		report.error= error
 	}
 	console.warn(report)
-	return _error500
+	return new Response(null, {status: 500})
 }
 
-function result(request){
-	return request.result
+function ok(body){
+	return new Response(JSON.stringify(body), {
+		status: 200,
+		headers: {"content-type": "application/json"}
+	})
 }
 
 function idb(name, {views}){
@@ -38,53 +38,96 @@ function idb(name, {views}){
 	views.forbidden= views.forbidden|| forbidden
 	views.notFound= views.notFound|| notFound
 	views.error500= views.error500|| error500
-	var defaults = new Promise(function(res,rej){
-		var open= indexedDB.open(name)
-		open.onupgradeneeded= function(){
-			defaults.result.createObjectStore("defaults", {keyPath: "key"})
-		}
-		open.onsuccess= function(){
-			var db= defaults.result
-			db.fetchGet= function(ff, key){
-				return new Promise(function(resolve, reject){
-					var get= db.get(key)
-					get.onsuccess= function(){
-						var result= get.result
-						if(views.get){
-							result= views.get(result)
-						}
-						ff.respondWith(result)
-					}
-					get.onerror= function(){
-						var err= get.error
-						if(views.error){
-							err= views.error(err)
-						}
-						ff.respondWith(err)
-					}
-				})
+	var db= new Promise(function(resolve, reject){
+		var open= indexedDB.open(name, 1)
+		open.onupgradeneeded= function(e){
+			if(e.oldVersion < 1){
+				open.result.createObjectStore( name)
 			}
-			db.fetchPut= function( ff, key, value){
-				var put= db.put(key, value)
-				put.onsuccess= function(){
-					var result= put.result
-					if(views.put){
-						result= views.put(result)
-					}
-					ff.respondWith()
-				}
-				put.onerror= function(){
-					ff.respondWith(error500())
-				}
-			}
-			resolve(db)
 		}
-		open.onerror= function(){
-			reject(defaults.error)
+		open.onsuccess= function(e){
+			var result= e.currentTarget.result
+			resolve(result)
+		}
+		open.onerror= function(e){
+			var err= e.currentTarget.error
+			reject(err)
 		}
 	})
-	
-	return defaults
+	db.fetchGet= function(key, ff){
+		console.log("fetchGet", name, key)
+		return db.then(function(d){
+			var get
+			if(key !== undefined){
+				get= d.transaction(name).objectStore(name).get(key)
+			}else{
+				get= d.transaction(name).objectStore(name).getAll()
+			}
+			return new Promise(function(resolve,reject){
+				get.onsuccess= function(e){
+					var result= e.currentTarget.result
+					if(key !== undefined && views.get){
+						result= views.get(result)
+					}else if(views.getAll){
+						result= views.getAll(result)
+					}
+					resolve(ok(result))
+				}
+				get.onerror= function(){
+					var err= get.error
+					if(views.error){
+						err= views.error(err)
+					}
+					reject(error500(err))
+				}
+			})
+		})
+	}
+	db.fetchPut= function( key, value, ff){
+		return new Promise(function( resolve, reject){
+			var put= db.transaction(name, "readwrite").objectStore(name).put(value, key).complete
+			put.onsuccess= function(e){
+				var result= e.currentTarget.result
+				if(views.put){
+					result= views.put(result)
+				}
+				if(ff){
+					ff.respondWith(result)
+				}
+				resolve(result)
+			}
+			put.onerror= function(){
+				var err= get.error
+				if(views.error){
+					err= views.error(err)
+				}
+				return err
+			}
+		})
+	}
+	db.fetchDelete= function( key, ff){
+		return new Promise(function( resolve, reject){
+			var del= db.transaction(name, "readwrite").objectStore(name).delete(key).complete
+			del.onsuccess= function(e){
+				var result= e.currentTarget.result
+				if(views.del){
+					result= views.delete(result)
+				}
+				if(ff){
+					ff.respondWith(result)
+				}
+				resolve(result)
+			}
+			del.onerror= function(){
+				var err= get.error
+				if(views.error){
+					err= views.error(err)
+				}
+				return err
+			}
+		})
+	}
+	return db
 }
 
 function subdomainCheck(requested, origin){
@@ -103,26 +146,14 @@ const headers = {
 }
 
 function makeSet(prefix){
-	const set= {}
-	var db= idb(prefix)
+	var db= idb(prefix, {})
 	return {
 		GET: function(ff, domain){
-			if(!domain){
-				if(!text){
-					text= JSON.stringify(Object.keys(set))
-				}
-				ff.respondWith(new Response(text, {headers}))
-			}else if(set[domain]){
-				ff.respondWith(new Response())
-			}else{
-				notFound(ff);
-			}
+			ff.respondWith(db.fetchGet(domain))
 		},
 		HEAD: function(ff, domain){
-			if(domain && !set[domain]){
-				return notFound()
-			}
-			ff.respondWith(new Response())
+			var response= db.fetchGet(domain.then(x => ok("")))
+			ff.respondWith(response)
 		},
 		POST: function(ff, domain){
 			var checked = subdomainCheck(domain)
@@ -132,7 +163,7 @@ function makeSet(prefix){
 			if(domain){
 				ff.respondWith(new Reponse())
 			}else{
-				ff.responedWith(new Reponse("", {
+				ff.responedWith(new Reponse({
 					status: 303,
 					statusText: "See Other",
 					headers: {
@@ -140,8 +171,6 @@ function makeSet(prefix){
 					}
 				}))
 			}
-			set[domain]= true
-			text= null
 		},
 		DELETE: function(ff, domain){
 			var checked = subdomainCheck(domain)
@@ -170,45 +199,35 @@ function makeSet(prefix){
 	}
 }
 
-function requestHandle(request, ff){
-	request.onsuccess= function(){
-		ff.respondWith(new Response(request.result))
-	}
-	request.onerror= function(){
-		notFound(ff)
-	}
-}
-
-
-var defaults= idb("defaults")
+var defaults= idb("defaults", {})
 function makeDefault(name){
 	return {
 		GET: function(ff){
-			if(def === null){
-				return notFound(ff)
-			}
-			var request= defaults.get(name)
+			//if(def === null){
+			//	return notFound(ff)
+			//}
+			//var request= defaults.get(name)
 		},
 		HEAD: function(ff){
-			if(def === null){
-				return notFound(ff)
-			}
-			ff.respondWith(new Response())
+			//if(def === null){
+			//	return notFound(ff)
+			//}
+			//ff.respondWith(new Response())
 		},
 		POST: function(ff){
-			ff.request.text().then(function(body){
-				var request= defaults.put(name, body)
-				request.onsuccess= function(){
-					ff.respondWith(new Response())
-				}
-				request.onerror= function(){
-					notFound(ff)
-				}
-			})
+			//ff.request.text().then(function(body){
+			//	var request= defaults.put(name, body)
+			//	request.onsuccess= function(){
+			//		ff.respondWith(new Response())
+			//	}
+			//	request.onerror= function(){
+			//		notFound(ff)
+			//	}
+			//})
 		},
 		DELETE: function(ff){
-			var request= defaults.delete(name)
-			ff.respondWith(new Response())
+			//var request= defaults.delete(name)
+			//ff.respondWith(new Response())
 		}
 	}
 }
@@ -222,11 +241,11 @@ var routes={
 	l: /^lb$/
 }
 
-var browsing= routes.b.handler= makeSet("b")
-var browsingDefault= routes.db.handler= makeDefault("db")
-var register= routes.r.handler= makeSet("r")
-var registerDefault= routes.dr.handler= makeDefault("dr")
-var browsingAutomatic= routes.l.handler= makeDefault("lb")
+routes.b.handler= makeSet("b")
+routes.db.handler= makeDefault("db")
+routes.r.handler= makeSet("r")
+routes.dr.handler= makeDefault("dr")
+routes.l.handler= makeDefault("lb")
 //routes[""].handler= {GET: browsing.GET, HEAD: browsing.HEAD}
 
 function f(ff){
@@ -243,7 +262,7 @@ function f(ff){
 		if(ok&& handler){
 			handler(ff, ok[1])
 		}else{
-			notFound(ff)
+			ff.respondWith(notFound())
 		}
 	}
 }

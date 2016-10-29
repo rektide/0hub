@@ -5,9 +5,6 @@ class ResourceList extends HTMLElement {
 	static get observedAttributes(){
 		return ["src"]
 	}
-	/**
-	 * @override
-	 */
 	connectedCallback(){
 		var src= this.getAttribute("src")
 		if(src){
@@ -17,7 +14,12 @@ class ResourceList extends HTMLElement {
 	}
 	refresh(){
 		var src= this.getAttribute("src")
-		this.data= fetch(src).then(response=> response.json())
+		this.data= fetch(src).then(function(response){
+			if(response.status < 300){
+				return response.json()
+			}
+			throw new Error("Bad status "+response.status)
+		})
 		this.data.then(data=>{
 			var html = ["<ol>"]
 			data.forEach(function(item){

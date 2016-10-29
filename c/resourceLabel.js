@@ -14,9 +14,13 @@ class ResourceLabel extends HTMLElement {
 	}
 	refresh(){
 		var src= this.getAttribute("src")
-		this.data= fetch(src).then(response=> response.json())
+		this.data= fetch(src).then(function(response){
+			if(response.status < 300){
+				return response.json()
+			}
+			throw new Error("Bad status "+response.status)
+		})
 		this.data.then(data=> {
-			debugger
 			this.innerHTML= data
 		})
 	}
@@ -30,7 +34,7 @@ class ResourceLabel extends HTMLElement {
 }
 
 if(typeof customElements !== "undefined"){
-	//customElements.define("resource-label", ResourceLabel, {extends: "span"})
+	customElements.define("resource-label", ResourceLabel)
 }else{
 	document.registerElement("resource-label", {
 		prototype: ResourceLabel
